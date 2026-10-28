@@ -61,14 +61,14 @@ details.tech[open] summary::after{content:"–"}
 .chip{font:700 12px "Barlow",sans-serif;background:var(--chip);color:var(--accent);border-radius:6px;padding:2px 7px}
 .status{font-size:14px;font-weight:600;text-align:right;min-height:20px}
 .status.add{color:var(--good)} .status.low{color:var(--warn)} .status.keep{color:var(--muted)}
-.inputs{grid-column:1/-1;display:grid;grid-template-columns:1.6fr 1fr;gap:10px}
+.inputs{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .field{display:flex;flex-direction:column;gap:4px}
 .field span{font-size:13px;color:var(--muted)}
 .stepper{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
 .step{width:44px;border:0;background:transparent;color:var(--ink);font-size:22px;cursor:pointer}
 .step:active{background:var(--chip)}
 input{width:100%;min-width:0;border:0;background:transparent;color:var(--ink);font:600 19px "Barlow",sans-serif;text-align:center;padding:10px 0}
-.reps input{border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+
 .foot{margin-top:24px;text-align:center}
 .reset{background:none;border:0;color:var(--muted);text-decoration:underline;font:inherit;font-size:14px;cursor:pointer;padding:8px}
 .dayhead{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-size:24px;margin:28px 0 0}
@@ -183,10 +183,14 @@ function render(){
               <button type="button" class="step" aria-label="Increase weight">+</button>
             </div></label>
           <label class="field reps"><span>Reps done</span>
-            <input inputmode="numeric" value="${d.r??""}" placeholder="–" aria-label="${ex.n} ${lab} reps"></label>
+            <div class="stepper">
+              <button type="button" class="step" aria-label="One rep less">−</button>
+              <input inputmode="numeric" value="${d.r??""}" placeholder="–" aria-label="${ex.n} ${lab} reps">
+              <button type="button" class="step" aria-label="One rep more">+</button>
+            </div></label>
         </div>`;
       const [wIn,rIn]=row.querySelectorAll("input");
-      const [minus,plus]=row.querySelectorAll(".step");
+      const [minus,plus,rMinus,rPlus]=row.querySelectorAll(".step");
       const st=row.querySelector(".status");
       const step=Number(w0)>=15?2.5:1;
       const put=()=>{data[id]={w:wIn.value.replace(",","."),r:rIn.value};save()};
@@ -195,6 +199,9 @@ function render(){
       const bump=dir=>{const v=parseFloat(wIn.value.replace(",","."))||0;const n=Math.max(0,Math.round((v+dir*step)*10)/10);wIn.value=n;put()};
       minus.addEventListener("click",()=>bump(-1));
       plus.addEventListener("click",()=>bump(1));
+      const rBump=dir=>{const cur=rIn.value===""?null:parseInt(rIn.value,10);let n=cur===null||isNaN(cur)?(dir>0?mn:Math.max(0,mn-1)):Math.max(0,cur+dir);rIn.value=n;put();status(st,rIn.value,mn,mx)};
+      rMinus.addEventListener("click",()=>rBump(-1));
+      rPlus.addEventListener("click",()=>rBump(1));
       status(st,d.r,mn,mx);
       card.appendChild(row);
     });
