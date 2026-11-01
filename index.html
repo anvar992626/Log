@@ -104,6 +104,17 @@ input::placeholder{color:var(--muted)}
 .toggle button:focus-visible,.step:focus-visible,input:focus-visible,summary:focus-visible,.reset:focus-visible,.newsess:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .newsess.armed{background:color-mix(in srgb,var(--warn) 22%,var(--surface));border-color:var(--warn);box-shadow:0 0 18px color-mix(in srgb,var(--warn) 35%,transparent)}
 .reset.armed{color:var(--warn)}
+.timerbar{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--bg) 86%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--accent);box-shadow:0 -6px 24px color-mix(in srgb,var(--accent) 25%,transparent)}
+.tb-row{max-width:560px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.tb-label{font-size:15px;font-weight:600;color:var(--muted)}
+.tb-time{font:700 36px/1.05 "Chakra Petch",sans-serif;letter-spacing:1px;color:var(--ink)}
+.tb-skip{font:700 16px "Chakra Petch",sans-serif;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:12px;padding:12px 18px;cursor:pointer}
+.tb-bar{max-width:560px;margin:10px auto 0;height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.tb-bar i{display:block;height:100%;width:0;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.timerbar.go{border-top-color:var(--good);box-shadow:0 -6px 28px color-mix(in srgb,var(--good) 35%,transparent)}
+.timerbar.go .tb-time{color:var(--good)} .timerbar.go .tb-bar i{background:var(--good);box-shadow:0 0 10px var(--good)}
+body.has-timer .wrap{padding-bottom:140px}
+.rest{font-size:14px;font-weight:600;color:var(--muted)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:no-preference){
   .bar i{transition:width .35s ease}
@@ -142,20 +153,27 @@ input::placeholder{color:var(--muted)}
   </div>
 </div>
 
+<div class="timerbar" id="timerbar" hidden role="timer" aria-live="polite">
+  <div class="tb-row">
+    <div><div class="tb-label" id="tbl"></div><div class="tb-time" id="tbt"></div></div>
+    <button type="button" class="tb-skip" id="tbskip">Skip</button>
+  </div>
+  <div class="tb-bar"><i id="tbf"></i></div>
+</div>
 <script>
 const PLAN={
  push:[
-  {n:"Incline Smith Press",note:"3 light warm-up sets first",s:[["Top",5,9,"",25],["Back-off 1",12,15,"",17.5],["Back-off 2",12,15,"",17.5]]},
-  {n:"Machine Flat Press",note:"1–2 light warm-up sets first",s:[["Top",6,10,"",67.5],["Back-off 1",12,15,"",50],["Back-off 2",12,15,"LP",50]]},
-  {n:"Machine Shoulder Press",note:"1–2 light warm-up sets first",s:[["Top",6,10,"",19.5],["Back-off",12,15,"",12.5]]},
+  {n:"Incline Smith Press",c:1,note:"3 light warm-up sets first",s:[["Top",5,9,"",25],["Back-off 1",12,15,"",17.5],["Back-off 2",12,15,"",17.5]]},
+  {n:"Machine Flat Press",c:1,note:"1–2 light warm-up sets first",s:[["Top",6,10,"",67.5],["Back-off 1",12,15,"",50],["Back-off 2",12,15,"LP",50]]},
+  {n:"Machine Shoulder Press",c:1,note:"1–2 light warm-up sets first",s:[["Top",6,10,"",19.5],["Back-off",12,15,"",12.5]]},
   {n:"Cable Lateral Raises",s:[["Set 1",15,20,"",5],["Set 2",15,20,"",5],["Set 3",15,20,"LP",5]]},
   {n:"Skull Crushers",s:[["Top",8,10,"",4],["Back-off",12,15,"",3]]},
   {n:"Tricep Pushdown",s:[["Set 1",12,15,"",""],["Set 2",12,15,"DS",""]]}
  ],
  pull:[
-  {n:"Lat Pulldown",note:"3 light warm-up sets first",s:[["Top",5,9,"",70],["Back-off 1",12,15,"",56],["Back-off 2",12,15,"LP",56]]},
-  {n:"T-Bar / Machine Row",note:"1–2 light warm-up sets first",s:[["Top",6,10,"",30],["Back-off 1",12,15,"",15],["Back-off 2",12,15,"",15]]},
-  {n:"Single Arm Row",s:[["Set 1",10,12,"",25],["Set 2",10,12,"",25],["Set 3",10,12,"",25]]},
+  {n:"Lat Pulldown",c:1,note:"3 light warm-up sets first",s:[["Top",5,9,"",70],["Back-off 1",12,15,"",56],["Back-off 2",12,15,"LP",56]]},
+  {n:"T-Bar / Machine Row",c:1,note:"1–2 light warm-up sets first",s:[["Top",6,10,"",30],["Back-off 1",12,15,"",15],["Back-off 2",12,15,"",15]]},
+  {n:"Single Arm Row",c:1,s:[["Set 1",10,12,"",25],["Set 2",10,12,"",25],["Set 3",10,12,"",25]]},
   {n:"Face Pulls",s:[["Set 1",15,20,"",25],["Set 2",15,20,"RP",25]]},
   {n:"Lateral Raises",s:[["Set 1",15,20,"",5],["Set 2",15,20,"LP",5]]},
   {n:"Hammer Curls",s:[["Top",8,10,"",15],["Back-off 1",12,15,"",10],["Back-off 2",12,15,"",10]]},
@@ -205,12 +223,16 @@ function render(){
     card.innerHTML=`<div class="exhead"><h2>${ex.n}</h2><span class="excount"></span></div>${ex.note?`<p class="note">${ex.note}</p>`:""}`;
     const rows=[];
     ex.s.forEach(([lab,mn,mx,tech,w0],j)=>{
+      const lastSet=j===ex.s.length-1,nextEx=PLAN[day][i+1];
+      let restS=/^Top/.test(lab)?180:ex.c?150:90;
+      if(lastSet)restS=nextEx?Math.max(restS,120):0;
+      const nextLab=!lastSet?`${ex.n}, ${ex.s[j+1][0]}`:(nextEx?nextEx.n:"");
       const id=`${day}-${i}-${j}`;
       const d=data[id]||{};
       const w=d.w!==undefined?d.w:w0;
       const row=document.createElement("div");row.className="set";
       row.innerHTML=`
-        <div class="label"><button type="button" class="dot" aria-label="Mark ${lab} done">✓</button>${lab} <span class="range">${mn}–${mx} reps</span>${tech?`<span class="chip">${tech}</span>`:""}</div>
+        <div class="label"><button type="button" class="dot" aria-label="Mark ${lab} done">✓</button>${lab} <span class="range">${mn}–${mx} reps</span>${tech?`<span class="chip">${tech}</span>`:""}${restS?`<span class="rest">Rest ${fmt(restS)}</span>`:""}</div>
         <div class="status"></div>
         <div class="inputs">
           <label class="field"><span>Weight (kg)</span>
@@ -238,12 +260,12 @@ function render(){
         card._check();updateProgress();
       };
       wIn.addEventListener("input",put);
-      rIn.addEventListener("input",()=>{done=has(rIn.value);put();status(st,rIn.value,mn,mx)});
-      row.querySelector(".dot").addEventListener("click",()=>{done=!done;put()});
+      rIn.addEventListener("input",()=>{done=has(rIn.value);put();status(st,rIn.value,mn,mx);done?startRest(restS,nextLab):stopRest()});
+      row.querySelector(".dot").addEventListener("click",()=>{done=!done;put();done?startRest(restS,nextLab):stopRest()});
       const bump=dir=>{const v=parseFloat(wIn.value.replace(",","."))||0;wIn.value=Math.max(0,Math.round((v+dir*step)*10)/10);put()};
       minus.addEventListener("click",()=>bump(-1));
       plus.addEventListener("click",()=>bump(1));
-      const rBump=dir=>{const cur=has(rIn.value)?parseInt(rIn.value,10):NaN;rIn.value=isNaN(cur)?(dir>0?mn:Math.max(0,mn-1)):Math.max(0,cur+dir);done=true;put();status(st,rIn.value,mn,mx)};
+      const rBump=dir=>{const cur=has(rIn.value)?parseInt(rIn.value,10):NaN;rIn.value=isNaN(cur)?(dir>0?mn:Math.max(0,mn-1)):Math.max(0,cur+dir);done=true;put();status(st,rIn.value,mn,mx);startRest(restS,nextLab)};
       rMinus.addEventListener("click",()=>rBump(-1));
       rPlus.addEventListener("click",()=>rBump(1));
       status(st,d.r,mn,mx);
@@ -301,6 +323,43 @@ twoTap(document.getElementById("newsess"),"Start new session",
 twoTap(document.getElementById("reset"),"Reset all to starting weights",
   ()=>"Tap again to reset everything","Reset done",
   ()=>{data={};save();render();window.scrollTo({top:0})});
+function fmt(s){s=Math.max(0,s);return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`}
+const tb=document.getElementById("timerbar"),tbl=document.getElementById("tbl"),tbt=document.getElementById("tbt"),tbf=document.getElementById("tbf");
+let timer={end:0,total:0,label:"",fired:false},tick,actx;
+try{const t=JSON.parse(localStorage.getItem(KEY+"-timer")||"null");if(t&&t.end>Date.now())timer=t}catch(e){}
+function saveT(){try{localStorage.setItem(KEY+"-timer",JSON.stringify(timer))}catch(e){}}
+function unlockAudio(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==="suspended")actx.resume()}catch(e){}}
+function beep(){
+  try{if(actx){[0,.3,.6].forEach(o=>{const os=actx.createOscillator(),g=actx.createGain();os.type="square";os.frequency.value=o===.6?1320:880;os.connect(g);g.connect(actx.destination);const t=actx.currentTime+o;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.25,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.2);os.start(t);os.stop(t+.22)})}}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([250,120,250,120,400])}catch(e){}
+}
+function startRest(sec,label){
+  if(!sec){stopRest();return}
+  unlockAudio();
+  timer={end:Date.now()+sec*1000,total:sec,label,fired:false};saveT();run();
+}
+function stopRest(){timer={end:0,total:0,label:"",fired:false};saveT();run()}
+function run(){clearInterval(tick);paint();if(timer.end)tick=setInterval(paint,250)}
+function paint(){
+  if(!timer.end){tb.hidden=true;document.body.classList.remove("has-timer");clearInterval(tick);return}
+  tb.hidden=false;document.body.classList.add("has-timer");
+  const left=Math.ceil((timer.end-Date.now())/1000);
+  if(left<=0){
+    if(!timer.fired){timer.fired=true;saveT();beep()}
+    tb.classList.add("go");tbt.textContent="GO";
+    tbl.textContent=timer.label?`Rest over. Next: ${timer.label}`:"Rest over";
+    tbf.style.width="100%";
+    if(left<=-8)stopRest();
+    return;
+  }
+  tb.classList.remove("go");
+  tbt.textContent=fmt(left);
+  tbl.textContent=timer.label?`Rest. Next: ${timer.label}`:"Rest";
+  tbf.style.width=((1-left/timer.total)*100)+"%";
+}
+document.getElementById("tbskip").addEventListener("click",stopRest);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)paint()});
+run();
 render();
 </script>
 </body>
